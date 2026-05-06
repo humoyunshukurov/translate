@@ -1,0 +1,39 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     fillblank
+      POSTGRES_PASSWORD: fillblank
+      POSTGRES_DB:       fillblank
+    ports: ['5432:5432']
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on: [postgres]
+    environment:
+      DATABASE_URL: postgres://fillblank:fillblank@postgres:5432/fillblank
+      CORS_ORIGIN:  http://localhost:3000
+      PORT:         4000
+    ports: ['4000:4000']
+    volumes: ['./backend:/app', '/app/node_modules']
+    command: npm run dev
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on: [backend]
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+    ports: ['3000:3000']
+    volumes: ['./frontend:/app', '/app/node_modules', '/app/.next']
+    command: npm run dev
+
+volumes:
+  pg_data:
