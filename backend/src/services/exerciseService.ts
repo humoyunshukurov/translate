@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import type { Exercise, ExerciseWithAnswers, Topic } from '../../../shared/types/index.js';
+import type { Exercise, ExerciseWithAnswers, Topic } from '../../shared/types/index.js';
 
 // ── Topics ───────────────────────────────────────────────────────────────────
 

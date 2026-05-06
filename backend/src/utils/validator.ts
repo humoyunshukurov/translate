@@ -13,7 +13,7 @@
  *   score <  0.60  → 'incorrect'
  */
 
-import { ValidationStatus } from '../../../shared/types/index.js';
+import { ValidationStatus } from '../../shared/types/index.js';
 
 const CORRECT_THRESHOLD = 0.85;
 const CLOSE_THRESHOLD   = 0.60;

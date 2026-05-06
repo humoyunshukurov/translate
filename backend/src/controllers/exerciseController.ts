@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import * as exerciseService from '../services/exerciseService.js';
 import * as attemptService from '../services/attemptService.js';
 import { validateAnswer } from '../utils/validator.js';
-import type { ValidationRequest } from '../../../shared/types/index.js';
+import type { ValidationRequest } from '../../shared/types/index.js';
 
 // GET /api/topics
 export async function listTopics(req: Request, res: Response) {
