@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useExerciseStore } from '../../../store/exerciseStore';
 import { ExerciseCard } from '../../../components/FillBlank/ExerciseCard';
@@ -15,16 +15,20 @@ export function ExerciseSession({ topic, exercises }: Props) {
   const currentIndex = useExerciseStore((s) => s.currentIndex);
   const current      = useExerciseStore(useShallow((s) => s.exercises[s.currentIndex] ?? null));
   const blanks       = useExerciseStore((s) => s.blanks);
-
-  // Track whether initSession has been called so we don't flash "Loading..."
   const [ready, setReady] = useState(false);
 
+  // useRef bilan initSession va exercises reference'larini saqlaymiz
+  // bu useEffect deps warning'ini bartaraf qiladi
+  const initRef = useRef(initSession);
+  initRef.current = initSession;
+
   useEffect(() => {
-    initSession(topic, exercises);
+    initRef.current(topic, exercises);
     setReady(true);
+    // faqat topic.id o'zgarganda qayta ishga tushadi
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topic.id]);
 
-  // No exercises in DB for this topic
   if (ready && exercises.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
