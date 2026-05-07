@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useShallow } from 'zustand/react/shallow';
-import { useExerciseStore } from '../../../store/exerciseStore';
+import { useExerciseStore, selectCurrentExercise } from '../../../store/exerciseStore';
 import { ExerciseCard } from '../../../components/FillBlank/ExerciseCard';
 import { ProgressBar } from '../../../components/Progress/ProgressBar';
 import type { Exercise, Topic } from '../../../types';
@@ -13,33 +12,31 @@ export function ExerciseSession({ topic, exercises }: Props) {
   const initSession  = useExerciseStore((s) => s.initSession);
   const nextExercise = useExerciseStore((s) => s.nextExercise);
   const currentIndex = useExerciseStore((s) => s.currentIndex);
-  const current      = useExerciseStore(useShallow((s) => s.exercises[s.currentIndex] ?? null));
+  const current      = useExerciseStore(selectCurrentExercise);
   const blanks       = useExerciseStore((s) => s.blanks);
   const [ready, setReady] = useState(false);
 
-  // useRef bilan initSession va exercises reference'larini saqlaymiz
-  // bu useEffect deps warning'ini bartaraf qiladi
-  const initRef = useRef(initSession);
+  const topicId   = topic.id;
+  const initRef   = useRef(initSession);
   initRef.current = initSession;
 
   useEffect(() => {
     initRef.current(topic, exercises);
     setReady(true);
-    // faqat topic.id o'zgarganda qayta ishga tushadi
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topic.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topicId]);
 
   if (ready && exercises.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        <header className="space-y-1">
+        <header>
           <h1 className="text-2xl font-bold text-gray-900">{topic.title}</h1>
           <p className="text-sm text-gray-500">{topic.level} · {topic.description}</p>
         </header>
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center space-y-2">
           <p className="text-4xl">📝</p>
           <p className="text-gray-700 font-medium">No exercises yet for this topic.</p>
-          <p className="text-sm text-gray-400">Check back soon — content is being added!</p>
+          <p className="text-sm text-gray-400">Check back soon!</p>
         </div>
       </div>
     );
@@ -47,7 +44,7 @@ export function ExerciseSession({ topic, exercises }: Props) {
 
   if (!ready || !current) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-4">
         <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
         <div className="h-2 bg-gray-200 rounded animate-pulse" />
         <div className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
@@ -55,13 +52,13 @@ export function ExerciseSession({ topic, exercises }: Props) {
     );
   }
 
-  const currentBlanks = current.blanks.map((_, i) => blanks[`${current.id}-${i}`]);
-  const allCorrect    = currentBlanks.length > 0 && currentBlanks.every((b) => b?.status === 'correct');
-  const isLast        = currentIndex === exercises.length - 1;
+  const allCorrect = current.blanks.length > 0 &&
+    current.blanks.every((_, i) => blanks[`${current.id}-${i}`]?.status === 'correct');
+  const isLast = currentIndex === exercises.length - 1;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-      <header className="space-y-1">
+      <header>
         <h1 className="text-2xl font-bold text-gray-900">{topic.title}</h1>
         <p className="text-sm text-gray-500">{topic.level} · {topic.description}</p>
       </header>

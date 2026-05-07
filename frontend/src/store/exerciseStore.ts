@@ -1,101 +1,115 @@
 'use client';
 
 import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-import { devtools, persist } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import type { Exercise, Topic, ValidationResponse, TopicProgress } from '../types';
 
-export type BlankState = {
+export type BlankStatus = 'idle' | 'checking' | 'correct' | 'close' | 'incorrect';
+
+export interface BlankState {
   value: string;
-  status: 'idle' | 'checking' | 'correct' | 'close' | 'incorrect';
+  status: BlankStatus;
   feedback: string | null;
   correctAnswer: string | null;
   attempts: number;
-};
+}
 
-type SessionState = {
+interface SessionState {
   topic: Topic | null;
   exercises: Exercise[];
   currentIndex: number;
   blanks: Record<string, BlankState>;
   startedAt: number | null;
   progress: TopicProgress | null;
-};
+}
 
-type SessionActions = {
+interface SessionActions {
   initSession:     (topic: Topic, exercises: Exercise[]) => void;
   setBlankValue:   (exerciseId: string, blankIndex: number, value: string) => void;
   applyValidation: (exerciseId: string, blankIndex: number, res: ValidationResponse) => void;
   nextExercise:    () => void;
   resetSession:    () => void;
   setProgress:     (p: TopicProgress) => void;
-};
-
-function makeBlankKey(exerciseId: string, blankIndex: number) {
-  return `${exerciseId}-${blankIndex}`;
 }
-
-const defaultBlank = (): BlankState => ({
-  value: '', status: 'idle', feedback: null, correctAnswer: null, attempts: 0,
-});
 
 type Store = SessionState & SessionActions;
 
+const blankKey = (exerciseId: string, blankIndex: number) => `${exerciseId}-${blankIndex}`;
+
+const emptyBlank = (): BlankState => ({
+  value: '', status: 'idle', feedback: null, correctAnswer: null, attempts: 0,
+});
+
+const initialState: SessionState = {
+  topic: null, exercises: [], currentIndex: 0,
+  blanks: {}, startedAt: null, progress: null,
+};
+
 export const useExerciseStore = create<Store>()(
-  devtools(
-    persist(
-      immer((set) => ({
-        topic: null, exercises: [], currentIndex: 0, blanks: {}, startedAt: null, progress: null,
+  persist(
+    (set) => ({
+      ...initialState,
 
-        initSession(topic, exercises) {
-          set((s) => { s.topic = topic; s.exercises = exercises; s.currentIndex = 0; s.startedAt = Date.now(); s.blanks = {}; });
-        },
+      initSession: (topic, exercises) =>
+        set({ topic, exercises, currentIndex: 0, blanks: {}, startedAt: Date.now() }),
 
-        setBlankValue(exerciseId, blankIndex, value) {
-          const key = makeBlankKey(exerciseId, blankIndex);
-          set((s) => {
-            if (!s.blanks[key]) s.blanks[key] = defaultBlank();
-            s.blanks[key].value = value;
-            s.blanks[key].status = 'idle';
-            s.blanks[key].feedback = null;
-          });
-        },
+      setBlankValue: (exerciseId, blankIndex, value) =>
+        set((s) => {
+          const key = blankKey(exerciseId, blankIndex);
+          return {
+            blanks: {
+              ...s.blanks,
+              [key]: { ...(s.blanks[key] ?? emptyBlank()), value, status: 'idle', feedback: null },
+            },
+          };
+        }),
 
-        applyValidation(exerciseId, blankIndex, res) {
-          const key = makeBlankKey(exerciseId, blankIndex);
-          set((s) => {
-            const blank = s.blanks[key] ?? defaultBlank();
-            blank.status = res.status;
-            blank.feedback = res.feedback;
-            blank.correctAnswer = res.correctAnswer ?? null;
-            blank.attempts += 1;
-            s.blanks[key] = blank;
-          });
-        },
+      applyValidation: (exerciseId, blankIndex, res) =>
+        set((s) => {
+          const key = blankKey(exerciseId, blankIndex);
+          const prev = s.blanks[key] ?? emptyBlank();
+          return {
+            blanks: {
+              ...s.blanks,
+              [key]: {
+                ...prev,
+                status: res.status,
+                feedback: res.feedback,
+                correctAnswer: res.correctAnswer ?? null,
+                attempts: prev.attempts + 1,
+              },
+            },
+          };
+        }),
 
-        nextExercise() {
-          set((s) => { if (s.currentIndex < s.exercises.length - 1) s.currentIndex += 1; });
-        },
+      nextExercise: () =>
+        set((s) => ({
+          currentIndex: Math.min(s.currentIndex + 1, s.exercises.length - 1),
+        })),
 
-        resetSession() {
-          set((s) => { s.topic = null; s.exercises = []; s.currentIndex = 0; s.blanks = {}; s.startedAt = null; });
-        },
+      resetSession: () => set(initialState),
 
-        setProgress(p) { set((s) => { s.progress = p; }); },
-      })),
-      {
-        name: 'fillblank-session',
-        partialize: (s) => ({ topic: s.topic, exercises: s.exercises, currentIndex: s.currentIndex, blanks: s.blanks, startedAt: s.startedAt }),
-      }
-    ),
-    { name: 'ExerciseStore' }
+      setProgress: (progress) => set({ progress }),
+    }),
+    {
+      name: 'fillblank-session',
+      partialize: (s) => ({
+        topic: s.topic,
+        exercises: s.exercises,
+        currentIndex: s.currentIndex,
+        blanks: s.blanks,
+        startedAt: s.startedAt,
+      }),
+    }
   )
 );
 
-// Object selectors — use useShallow() at the call site to prevent infinite loops
+// ── Selectors (primitive — no infinite loop risk) ─────────────────────────────
+export const selectCurrentExercise = (s: Store): Exercise | null =>
+  s.exercises[s.currentIndex] ?? null;
 
-// Use separate primitive selectors to avoid infinite loop (new object = always "changed")
-export const selectCorrectCount = (s: Store) =>
+export const selectCorrectCount = (s: Store): number =>
   Object.values(s.blanks).filter((b) => b.status === 'correct').length;
 
-export const selectTotalBlanks = (s: Store) => Object.values(s.blanks).length;
+export const selectBlankByKey = (key: string) => (s: Store): BlankState =>
+  s.blanks[key] ?? emptyBlank();
