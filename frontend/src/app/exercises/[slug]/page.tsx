@@ -25,6 +25,6 @@ export default async function ExercisePage({ params }: Props) {
     ]);
     return <ExerciseSession topic={topic} exercises={exercises} />;
   } catch {
-    notFound();
+    return notFound();
   }
 }
